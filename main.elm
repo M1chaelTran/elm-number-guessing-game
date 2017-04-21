@@ -4,6 +4,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Random
+import Basics
 
 
 main =
@@ -27,7 +28,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model 1 10 0 0 False False, Cmd.none )
+    Model 1 10 0 0 False False ! []
 
 
 
@@ -48,7 +49,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         NumberSelect number ->
-            ( { model | randomNumber = number }, Cmd.none )
+            { model | randomNumber = number } ! []
 
         Play ->
             ( { model | inPlay = True }, generateNumber model.minNumber model.maxNumber )
@@ -56,10 +57,7 @@ update msg model =
         Lower ->
             let
                 newMaxNumber =
-                    if model.randomNumber <= model.minNumber then
-                        model.minNumber
-                    else
-                        model.randomNumber - 1
+                    Basics.max model.minNumber <| model.randomNumber - 1
             in
                 ( { model
                     | maxNumber = newMaxNumber
@@ -71,10 +69,7 @@ update msg model =
         Higher ->
             let
                 newMinNumber =
-                    if model.randomNumber >= model.maxNumber then
-                        model.maxNumber
-                    else
-                        model.randomNumber + 1
+                    Basics.min model.maxNumber <| model.randomNumber + 1
             in
                 ( { model
                     | minNumber = newMinNumber
@@ -84,14 +79,14 @@ update msg model =
                 )
 
         NewGame ->
-            ( { model
+            ({ model
                 | inPlay = False
                 , minNumber = 1
                 , maxNumber = 10
                 , guessNumber = 0
-              }
-            , Cmd.none
+             }
             )
+                ! []
 
         MinNumber number ->
             { model | minNumber = String.toInt number |> Result.withDefault 1 } ! []
@@ -142,12 +137,12 @@ view1 model =
         , div
             []
             [ input
-                [ value toString <| model.minNumber, onInput MinNumber ]
+                [ value <| toString <| model.minNumber, onInput MinNumber ]
                 []
             , text
                 " and "
             , input
-                [ value (toString model.maxNumber), onInput MaxNumber ]
+                [ value <| toString <| model.maxNumber, onInput MaxNumber ]
                 []
             ]
         , div
@@ -161,7 +156,7 @@ view2 model =
     div []
         [ text "Is your number"
         , div []
-            [ h1 [] [ text ((toString model.randomNumber) ++ "?") ]
+            [ h1 [] [ text <| toString model.randomNumber ++ "?" ]
             , button [ onClick NewGame ] [ text "Yes" ]
             ]
         , div []

@@ -5,11 +5,17 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Random
 import Basics
+import Bootstrap.CDN as CDN
+import Bootstrap.Grid as Grid
+import Bootstrap.Grid.Col as Col
+import Bootstrap.Grid.Row as Row
+import Bootstrap.Form.Input as Input
+import Bootstrap.Button as Button
 
 
 main =
     Html.program
-        { init = init, view = view, update = update, subscriptions = subscriptions }
+        { init = init, view = mainContent, update = update, subscriptions = subscriptions }
 
 
 
@@ -21,14 +27,20 @@ type alias Model =
     , maxNumber : Int
     , randomNumber : Int
     , guessNumber : Int
-    , lower : Bool
-    , inPlay : Bool
+    , page : Page
+    , numberOfGames : Int
     }
+
+
+type Page
+    = GameSetup
+    | GameInProgress
+    | GameOver
 
 
 init : ( Model, Cmd Msg )
 init =
-    Model 1 10 0 0 False False ! []
+    Model 1 10 0 1 GameSetup 1 ! []
 
 
 
@@ -36,57 +48,45 @@ init =
 
 
 type Msg
-    = NumberSelect Int
+    = RandomNumber Int
     | Play
-    | Lower
-    | Higher
+    | GoLower
+    | GoHigher
     | NewGame
     | MinNumber String
     | MaxNumber String
+    | Correct
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NumberSelect number ->
+        RandomNumber number ->
             { model | randomNumber = number } ! []
 
         Play ->
-            ( { model | inPlay = True }, generateNumber model.minNumber model.maxNumber )
+            ( { model | page = GameInProgress }, generateRandomNumberBetween model.minNumber model.maxNumber )
 
-        Lower ->
-            let
-                newMaxNumber =
-                    Basics.max model.minNumber <| model.randomNumber - 1
-            in
-                ( { model
-                    | maxNumber = newMaxNumber
-                    , guessNumber = incrementGuessNumber model
-                  }
-                , generateNumber model.minNumber newMaxNumber
-                )
+        GoLower ->
+            endGame model True
 
-        Higher ->
-            let
-                newMinNumber =
-                    Basics.min model.maxNumber <| model.randomNumber + 1
-            in
-                ( { model
-                    | minNumber = newMinNumber
-                    , guessNumber = incrementGuessNumber model
-                  }
-                , generateNumber newMinNumber model.maxNumber
-                )
+        GoHigher ->
+            endGame model False
 
         NewGame ->
-            ({ model
-                | inPlay = False
-                , minNumber = 1
-                , maxNumber = 10
-                , guessNumber = 0
-             }
-            )
-                ! []
+            let
+                gameCount =
+                    model.numberOfGames + 1
+            in
+                ({ model
+                    | page = GameSetup
+                    , minNumber = 1
+                    , maxNumber = 10 * gameCount
+                    , guessNumber = 1
+                    , numberOfGames = gameCount
+                 }
+                )
+                    ! []
 
         MinNumber number ->
             { model | minNumber = String.toInt number |> Result.withDefault 1 } ! []
@@ -94,18 +94,47 @@ update msg model =
         MaxNumber number ->
             { model | maxNumber = String.toInt number |> Result.withDefault 10 } ! []
 
-
-generateNumber : Int -> Int -> Cmd Msg
-generateNumber min max =
-    Random.generate NumberSelect <| Random.int min max
+        Correct ->
+            { model | page = GameOver } ! []
 
 
-incrementGuessNumber : Model -> Int
-incrementGuessNumber model =
-    if model.minNumber == model.maxNumber then
-        model.guessNumber
-    else
-        model.guessNumber + 1
+generateRandomNumberBetween : Int -> Int -> Cmd Msg
+generateRandomNumberBetween min max =
+    Random.generate RandomNumber <| Random.int min max
+
+
+endGame : Model -> Bool -> ( Model, Cmd Msg )
+endGame model lower =
+    let
+        minNumber =
+            if not lower then
+                Basics.min model.maxNumber <| model.randomNumber + 1
+            else
+                model.minNumber
+
+        maxNumber =
+            if lower then
+                Basics.max model.minNumber <| model.randomNumber - 1
+            else
+                model.maxNumber
+
+        page =
+            if minNumber == maxNumber then
+                GameOver
+            else
+                GameInProgress
+
+        guessNumber =
+            model.guessNumber + 1
+    in
+        ( { model
+            | minNumber = minNumber
+            , maxNumber = maxNumber
+            , guessNumber = guessNumber
+            , page = page
+          }
+        , generateRandomNumberBetween minNumber maxNumber
+        )
 
 
 
@@ -121,48 +150,128 @@ subscriptions model =
 -- VIEW
 
 
+rowStyle : Attribute Msg
+rowStyle =
+    style [ ( "margin", "20px 0" ) ]
+
+
+buttonPadding : Attribute Msg
+buttonPadding =
+    style [ ( "margin", "5px" ) ]
+
+
 view : Model -> Html Msg
 view model =
-    if model.inPlay then
-        view2 model
-    else
-        view1 model
+    div [] [ mainContent model ]
 
 
-view1 : Model -> Html Msg
-view1 model =
-    div []
-        [ div []
-            [ text "Think of a number between" ]
-        , div
-            []
-            [ input
-                [ value <| toString <| model.minNumber, onInput MinNumber ]
-                []
-            , text
-                " and "
-            , input
-                [ value <| toString <| model.maxNumber, onInput MaxNumber ]
-                []
-            ]
-        , div
-            []
-            [ button [ onClick Play ] [ text "Play" ] ]
+mainContent : Model -> Html Msg
+mainContent model =
+    Grid.container
+        [ style
+            [ ( "text-align", "center" ) ]
+        ]
+        [ CDN.stylesheet
+        , case model.page of
+            GameSetup ->
+                setupView model
+
+            GameInProgress ->
+                gameView model
+
+            GameOver ->
+                gameOverView model
         ]
 
 
-view2 : Model -> Html Msg
-view2 model =
-    div []
-        [ text "Is your number"
-        , div []
-            [ h1 [] [ text <| toString model.randomNumber ++ "?" ]
-            , button [ onClick NewGame ] [ text "Yes" ]
+setupView : Model -> Html Msg
+setupView model =
+    Grid.container []
+        [ Grid.row [ Row.attrs [ rowStyle ] ]
+            [ Grid.col [] [ h3 [] [ text "Think of a number between" ] ] ]
+        , Grid.row [ Row.attrs [ style [ ( "justify-content", "center" ) ], rowStyle ] ]
+            [ Grid.col [ Col.xs1 ]
+                [ Input.text
+                    [ Input.attrs [ value <| toString <| model.minNumber, onInput MinNumber ] ]
+                ]
+            , Grid.col [ Col.xs1 ]
+                [ h3 []
+                    [ text
+                        " and "
+                    ]
+                ]
+            , Grid.col [ Col.xs1 ]
+                [ Input.text
+                    [ Input.attrs [ value <| toString <| model.maxNumber, onInput MaxNumber ] ]
+                ]
             ]
-        , div []
-            [ text <| toString model.guessNumber ++ " guessed count" ]
-        , div []
-            [ button [ onClick Lower ] [ text "lower" ]
-            , button [ onClick Higher ] [ text "higher" ]
+        , Grid.row
+            [ Row.attrs [ rowStyle ] ]
+            [ Grid.col []
+                [ Button.button
+                    [ Button.outlineSuccess
+                    , Button.attrs [ onClick Play ]
+                    ]
+                    [ text "Start game!" ]
+                ]
+            ]
+        ]
+
+
+gameView : Model -> Html Msg
+gameView model =
+    Grid.container []
+        [ Grid.row [ Row.attrs [ rowStyle ] ]
+            [ Grid.col []
+                [ h3 [] [ text "It is number" ] ]
+            ]
+        , Grid.row
+            [ Row.attrs [ rowStyle ] ]
+            [ Grid.col []
+                [ h1 [] [ text <| toString model.randomNumber ++ "?" ]
+                ]
+            ]
+        , Grid.row
+            [ Row.attrs [ rowStyle ] ]
+            [ Grid.col []
+                [ Button.button
+                    [ Button.outlineWarning
+                    , Button.attrs [ buttonPadding, onClick GoLower ]
+                    ]
+                    [ text "Go lower" ]
+                , Button.button
+                    [ Button.outlineSuccess
+                    , Button.attrs [ buttonPadding, onClick Correct ]
+                    ]
+                    [ text "Correct!" ]
+                , Button.button
+                    [ Button.outlinePrimary
+                    , Button.attrs [ buttonPadding, onClick GoHigher ]
+                    ]
+                    [ text "Go higher" ]
+                ]
+            ]
+        ]
+
+
+gameOverView : Model -> Html Msg
+gameOverView model =
+    Grid.container []
+        [ Grid.row [ Row.attrs [ rowStyle ] ]
+            [ Grid.col []
+                [ h3 [] [ text "Good game!" ] ]
+            ]
+        , Grid.row [ Row.attrs [ rowStyle ] ]
+            [ Grid.col []
+                [ text <| "Guessed it after " ++ toString model.guessNumber ++ " turns" ]
+            ]
+        , Grid.row [ Row.attrs [ rowStyle ] ]
+            [ Grid.col []
+                [ Button.button
+                    [ Button.outlineSuccess
+                    , Button.attrs [ onClick NewGame ]
+                    ]
+                    [ text "Increase difficulty" ]
+                ]
             ]
         ]

@@ -1,0 +1,9 @@
+{
+  "name": "elm-number-game",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "package": "elm make main.elm --output ./public/index.js",
+    "deploy": "yarn package && firebase deploy"
+  }
+}

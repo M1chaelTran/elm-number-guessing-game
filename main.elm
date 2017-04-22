@@ -1,4 +1,4 @@
-module Main exposing (..)
+module BootstrapLayout exposing (main)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -160,6 +160,19 @@ buttonPadding =
     style [ ( "margin", "5px" ) ]
 
 
+inputStyle : Attribute Msg
+inputStyle =
+    style [ ( "width", "50px" ) ]
+
+
+centerAlign : Attribute Msg
+centerAlign =
+    style
+        [ ( "text-align", "center" )
+        , ( "justify-content", "center" )
+        ]
+
+
 view : Model -> Html Msg
 view model =
     div [] [ mainContent model ]
@@ -167,12 +180,10 @@ view model =
 
 mainContent : Model -> Html Msg
 mainContent model =
-    Grid.container
-        [ style
-            [ ( "text-align", "center" ) ]
+    div
+        [ centerAlign
         ]
-        [ CDN.stylesheet
-        , case model.page of
+        [ case model.page of
             GameSetup ->
                 setupView model
 
@@ -188,21 +199,21 @@ setupView : Model -> Html Msg
 setupView model =
     Grid.container []
         [ Grid.row [ Row.attrs [ rowStyle ] ]
-            [ Grid.col [] [ h3 [] [ text "Think of a number between" ] ] ]
-        , Grid.row [ Row.attrs [ style [ ( "justify-content", "center" ) ], rowStyle ] ]
-            [ Grid.col [ Col.xs1 ]
+            [ Grid.col [] [ h4 [] [ text "Think of a number between" ] ] ]
+        , Grid.row [ Row.attrs [ centerAlign, rowStyle ] ]
+            [ Grid.col [ Col.xsAuto ]
                 [ Input.text
-                    [ Input.attrs [ value <| toString <| model.minNumber, onInput MinNumber ] ]
+                    [ Input.attrs [ inputStyle, value <| toString <| model.minNumber, onInput MinNumber ] ]
                 ]
-            , Grid.col [ Col.xs1 ]
+            , Grid.col [ Col.xsAuto ]
                 [ h3 []
                     [ text
                         " and "
                     ]
                 ]
-            , Grid.col [ Col.xs1 ]
+            , Grid.col [ Col.xsAuto ]
                 [ Input.text
-                    [ Input.attrs [ value <| toString <| model.maxNumber, onInput MaxNumber ] ]
+                    [ Input.attrs [ inputStyle, value <| toString <| model.maxNumber, onInput MaxNumber ] ]
                 ]
             ]
         , Grid.row
@@ -232,8 +243,8 @@ gameView model =
                 ]
             ]
         , Grid.row
-            [ Row.attrs [ rowStyle ] ]
-            [ Grid.col []
+            [ Row.attrs [ rowStyle, centerAlign ] ]
+            [ Grid.col [ Col.xsAuto ]
                 [ Button.button
                     [ Button.outlineWarning
                     , Button.attrs [ buttonPadding, onClick GoLower ]
